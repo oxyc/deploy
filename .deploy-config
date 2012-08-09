@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# Settings
+
+application=
+repository=
+branch="master"
+remote_staging="staging"
+
+project="drupal"

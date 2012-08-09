@@ -11,10 +11,18 @@ getPath() {
   echo "$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 }
 SCRIPT_DIR="$(getPath ${BASH_SOURCE[0]})"
+ORIG_DIR="$PWD"
+
+# global var where scripts should run.
+LOCAL_PATH="$ORIG_DIR"
 
 CONFIG_FILE=".deploy-config"
-REPO_REMOTE="origin"
-PROJECT_TYPES=(drupal wordpress none)
+
+# Allow environment variables
+[[ -z $DEPLOY_ENV_STAGING ]] && DEPLOY_ENV_STAGING="/var/www/staging"
+[[ -z $DEPLOY_ENV_USER ]] && DEPLOY_ENV_USER="/var/www/u"
+[[ -z $DEPLOY_PROJECT_TYPES ]] && DEPLOY_PROJECT_TYPES=(drupal wordpress none)
+[[ -z $DEPLOY_REPO_REMOTE ]] && DEPLOY_REPO_REMOTE="origin"
 
 version="$0 v0.1"
 
@@ -24,11 +32,11 @@ version="$0 v0.1"
 
 # Print usage
 usage() {
-  echo -n "$0 [OPTION]... [ACTION]
+  echo -n "$0 [OPTION]... [command]
 
 Deployment script.
 
- Actions:
+ commands:
   init              Initialize a new project.
   build             Scaffold a new project within this project.
   deploy            Deploy the project
@@ -42,22 +50,25 @@ Deployment script.
   cli               Run the cms-specific cli command and delegate all arguments
 
  Options:
-  -f, --force       Skip all user interaction
+  -f, --force       Skip all user intercommand
   -i, --interactive Prompt for values
   -q, --quiet       Quiet (no output)
   -v, --verbose     Output more
   -h, --help        Display this help and exit
+      --dry-run     Don't actually do anything
       --version     Output version information and exit
 "
 }
 
 # Set a trap for cleaning up in case of errors or when script exits.
 rollback() {
+  cd "$ORIG_DEST"
   die "Unexpected failure a."
 }
 
 # Source the boilerplate stuff
-source $SCRIPT_DIR/core.sh
+source $SCRIPT_DIR/helpers/core.sh
+source $SCRIPT_DIR/helpers/git.sh
 
 # Functions {{{1
 
@@ -85,17 +96,46 @@ getFirstParent() {
   echo "${dir##*/}"
 }
 
-getRemoteRepo() {
-  echo "$(git remote -v | awk "/^$1/ { print \$2; exit; }")"
-}
-
-hasBranch() {
-  [[ -n $(git branch | grep "^\([*| ]\) $1") ]]
-}
-
 run_cmd() {
   eval "$CMS_CLI_CMD $@"
 }
+
+promptCreateDir() {
+  local msg="$1"
+  local dst="$2"
+  [[ -d $dst ]] && return 0
+
+  if confirm "$1: $dst"; then
+    mkdir -p "$dst"
+  else
+    return 1
+  fi
+}
+
+# }}}
+# Parse flags {{{
+
+
+while [[ $1 = -?* ]]; do
+  case $1 in
+    -h|--help) usage >&2; safe_exit ;;
+    -V|--version) out "$version"; safe_exit ;;
+    -v|--verbose) verbose=1 ;;
+    -q|--quiet) quiet=1 ;;
+    -i|--interactive) interactive=1 ;;
+    -f|--force) force=1 ;;
+    --dry-run) dry=1 ;;
+    --endopts) shift; break ;;
+    *) die "invalid option: $1" ;;
+  esac
+  shift
+done
+
+# Exit if no command is specifid
+[[ $# -eq 0 ]] && { usage >&2; safe_exit; }
+
+command=$1; shift
+args+=("$@")
 
 # }}}
 
@@ -105,8 +145,8 @@ config_path=$(upsearch "$CONFIG_FILE")
 source $config_path
 
 # Make sure we're using a supported project type.
-if ! inArray "$project" "${PROJECT_TYPES[@]}"; then
-  die "Invalid project type: $project\nKnown types: ${PROJECT_TYPES[@]}"
+if ! inArray "$project" "${DEPLOY_PROJECT_TYPES[@]}"; then
+  die "Invalid project type: $project\nKnown types: ${DEPLOY_PROJECT_TYPES[@]}"
 fi
 
 # Default application name to the parent directory of the config file
@@ -114,7 +154,7 @@ fi
 [[ -z $application ]] && die "Application name not specified."
 
 # Default repository name to origin of current git working tree
-[[ -z $repository ]] && repository="$(getRemoteRepo "$REPO_REMOTE")"
+[[ -z $repository ]] && repository="$(getRemoteRepo "$DEPLOY_REPO_REMOTE")"
 [[ -z $repository ]] && die "Repository name not specified."
 
 # Make sure the branch exists
@@ -123,7 +163,7 @@ if ! hasBranch "$branch"; then
   die "There is no $branch branch."
 fi
 
-out "Using settings:
+log "Using settings:
 
 Application:  $application
 Repository:   $repository
@@ -136,43 +176,26 @@ Project type: $project
 # fi
 
 case $project in
-  drupal ) source $SCRIPT_DIR/drupal.sh ;;
-  wordpress ) source $SCRIPT_DIR/wordpress.sh ;;
-  none ) source $SCRIPT_DIR/none.sh ;;
+  drupal ) source $SCRIPT_DIR/projects/drupal.sh ;;
+  wordpress ) source $SCRIPT_DIR/projects/wordpress.sh ;;
+  none ) source $SCRIPT_DIR/projects/none.sh ;;
 esac
 
 # Delegate functionaliy {{{1
 
-while [[ $1 = -?* ]]; do
-  case $1 in
-    -h|--help) usage >&2; safe_exit ;;
-    -V|--version) out "$version"; safe_exit ;;
-    -v|--verbose) verbose=1 ;;
-    -q|--quiet) quiet=1 ;;
-    -i|--interactive) interactive=1 ;;
-    -f|--force) force=1 ;;
-    --endopts) shift; break ;;
-    *) die "invalid option: $1" ;;
-  esac
-  shift
-done
+delegateCommand() {
+  local file="$1"; shift
+  set -- "$@"
+  source $SCRIPT_DIR/commands/$file.sh
+}
 
-action=$1; shift
-args+=("$@")
-
-case $action in
-  init) ;;
-  build) ;;
-  deploy) ;;
-  stage) ;;
-  db) ;;
-  ssh) ;;
-  lftp) ;;
-  sync) ;;
-  status) ;;
-  scaffold) ;;
+case $command in
+  init|build|deploy|stage|db|ssh|lftp|sync|status|scaffold)
+    delegateCommand "$command" "${args[@]}"
+    ;;
   cli) run_cmd "${args[0]}" ;;
-  *) die "invalid action: $action" ;;
+  *) die "invalid command: $command" ;;
 esac
+
 
 # }}}

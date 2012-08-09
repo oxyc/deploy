@@ -26,7 +26,7 @@ site_root=$(__getRoot)
 site_path="wp-content"
 file_path="wp-content/files_mf:wp-content/uploads"
 
-out "
+log "
 Wordpress Version: $cms_version
 Site URI:          $site_uri
 Site root:         $site_root

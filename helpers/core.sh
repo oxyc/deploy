@@ -16,6 +16,7 @@ force=0
 quiet=0
 verbose=0
 interactive=0
+dry=0
 args=()
 
 # }}}
@@ -39,7 +40,7 @@ err() { out " \033[1;31m✖\033[0m  $@"; } >&2
 success() { out " \033[1;32m✔\033[0m  $@"; }
 
 # Verbose logging
-log() { (($verbose)) && out "$@"; }
+log() { (($verbose)) && out "$@"; return 0; }
 
 # Notify on function success
 notify() { [[ $? == 0 ]] && success "$@" || err "$@"; }

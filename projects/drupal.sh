@@ -23,7 +23,7 @@ getDbCommand() {
   echo "mysql --host=$db_hostname --user=$db_username --password=$db_password --database=$db_name"
 }
 
-out "
+log "
 Drupal Version: $cms_version
 Site URI:       $site_uri
 Site root:      $site_root
