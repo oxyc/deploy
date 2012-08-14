@@ -68,7 +68,7 @@ syncDb() {
   if [[ -e $dest/$CONFIG_FILE ]]; then
     cd $dest
     log "Running: deploy db import $tmp"
-    deploy -v db import "$tmp"
+    (( ! $dry )) && deploy -v db import "$tmp"
   elif [[ -n $staging_db_name ]]; then
     if confirm "Do you want to use $staging_db_name (staging db) as database destination?"; then
       [[ ! -e $tmp ]] && die "There is no database dump to import"
