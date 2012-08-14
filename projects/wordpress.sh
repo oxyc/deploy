@@ -2,7 +2,7 @@
 
 __getRoot() {
   local file="wp-load.php"
-  test -e "$PWD/$file" && echo "$PWD" && return
+  test -e "$PWD/$file" && echo "$(pwd -P)" && return
   getPath "$(upsearch "$file")"
 }
 CMS_CLI_CMD="wp --path=$(__getRoot)"
