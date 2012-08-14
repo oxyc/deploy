@@ -47,7 +47,7 @@ syncDb() {
   source $SCRIPT_DIR/commands/db.sh
 
   # There's a deploy config, use it
-  if [[ -e $src/$CONFIG_FILE ]]; then
+  if [[ -e $src/$CONFIG_FILE ]] && [[ -d $src/.git ]]; then
     cd $src
     tmp=$(deploy db dump)
 
@@ -65,7 +65,7 @@ syncDb() {
     onSyncDump "$tmp" "$src" "$dest"
   fi
 
-  if [[ -e $dest/$CONFIG_FILE ]]; then
+  if [[ -e $dest/$CONFIG_FILE ]] && [[ -d $dest/.git ]]; then
     cd $dest
     log "Running: deploy db import $tmp"
     (( ! $dry )) && deploy -v db import "$tmp"
