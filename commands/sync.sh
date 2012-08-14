@@ -80,8 +80,7 @@ syncDb() {
     rm -f $tmp
     die "Can not retrieve a destination database"
   fi
-  #rm -f $tmp
-
+  rm -f $tmp
 }
 
 action=$1; shift
