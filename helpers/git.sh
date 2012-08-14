@@ -1,15 +1,11 @@
 #!/bin/bash
 
-runCmd() {
-  [[ ! -d $LOCAL_PATH/.git ]] && die "This is not a git repository: $LOCAL_PATH"
-  cd "$LOCAL_PATH"
-  log "Running: $@"
-  (( ! $dry )) && eval "$@"
-  cd "$ORIG_DEST"
-}
-
 getRemoteRepo() {
   echo "$(git remote -v | awk "/^$1/ { print \$2; exit; }")"
+}
+getRepoCheckout() {
+  local path="$(getRemoteRepo "$1")"
+  echo "${path/.git/}"
 }
 
 hasBranch() {
@@ -17,7 +13,7 @@ hasBranch() {
 }
 
 hasRemote() {
-  [[ -n $(git remote | grep "^$1") ]]
+  [[ -n $1 ]] && [[ -n $(git remote | grep "^$1") ]]
 }
 
 isGit() {

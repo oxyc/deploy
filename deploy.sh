@@ -23,6 +23,9 @@ CONFIG_FILE=".deploy-config"
 [[ -z $DEPLOY_ENV_USER ]] && DEPLOY_ENV_USER="/var/www/u"
 [[ -z $DEPLOY_PROJECT_TYPES ]] && DEPLOY_PROJECT_TYPES=(drupal wordpress none)
 [[ -z $DEPLOY_REPO_REMOTE ]] && DEPLOY_REPO_REMOTE="origin"
+# @todo we should use printf or similar to format the url
+[[ -z $DEPLOY_DEV_DOMAIN ]] && DEPLOY_DEV_DOMAIN="minas-tirith.genero.fi"
+[[ -z $DEPLOY_MYSQL_DIR ]] && DEPLOY_MYSQL_DIR="/var/lib/mysql/"
 
 version="$0 v0.1"
 
@@ -71,6 +74,26 @@ source $SCRIPT_DIR/helpers/core.sh
 source $SCRIPT_DIR/helpers/git.sh
 
 # Functions {{{1
+
+# Return the domain uri of the specified root directory.
+# eg. /var/www/u/oxy/talo -> talo.oxy.minas-tirith.genero.fi
+getURI() {
+  echo "${application}.$(getFirstParent "$1").${DEPLOY_DEV_DOMAIN}"
+}
+
+runCmd() {
+  cd "$LOCAL_PATH"
+  log "Running: $@"
+  (( ! $dry )) && eval "$@"
+  cd "$ORIG_DEST"
+}
+
+escapeSearch() {
+  echo $@ | sed 's/\([[\/.*]\|\]\)/\\&/g'
+}
+escapeReplace() {
+  echo $@ | sed 's/[\/&]/\\&/g'
+}
 
 upsearch() {
   slashes=${PWD//[^\/]/}
@@ -193,7 +216,7 @@ case $command in
   init|build|deploy|stage|db|ssh|lftp|sync|status|scaffold)
     delegateCommand "$command" "${args[@]}"
     ;;
-  cli) run_cmd "${args[0]}" ;;
+  cli) run_cmd "${args[@]}" ;;
   *) die "invalid command: $command" ;;
 esac
 

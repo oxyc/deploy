@@ -1,7 +1,7 @@
 #!/bin/bash
 source $SCRIPT_DIR/helpers/deployment.sh
 
-isStaging() {
+hasStaging() {
   [[ -d $DELPOY_ENV_STAGING/$1 ]]
 }
 
@@ -36,7 +36,7 @@ stage() {
     notify "Pushed to staging area"
 
   # Staging area exists but is not connected with this repo
-  elif isStaging "$application" && confirm "Do you want to add as staging area: $staging_path"; then
+  elif hasStaging "$application" && confirm "Do you want to add as staging area: $staging_path"; then
     addStaging "$remote_staging" "$@"
 
   # Prompt whether to create the default application stage
